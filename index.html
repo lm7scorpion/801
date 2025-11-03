@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Control de Videos Preuniversitarios</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        .animate-slideIn {
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+    <div id="app" class="p-6"></div>
+
+    <script>
+        const cursos = [
+            { nombre: 'Lenguaje', color: 'bg-blue-500', colorDark: 'bg-blue-600' },
+            { nombre: 'Literatura', color: 'bg-purple-500', colorDark: 'bg-purple-600' },
+            { nombre: 'Psicología', color: 'bg-pink-500', colorDark: 'bg-pink-600' },
+            { nombre: 'Educación Cívica', color: 'bg-indigo-500', colorDark: 'bg-indigo-600' },
+            { nombre: 'Historia del Perú', color: 'bg-red-500', colorDark: 'bg-red-600' },
+            { nombre: 'Historia Universal', color: 'bg-orange-500', colorDark: 'bg-orange-600' },
+            { nombre: 'Geografía', color: 'bg-green-500', colorDark: 'bg-green-600' },
+            { nombre: 'Economía', color: 'bg-yellow-500', colorDark: 'bg-yellow-600' },
+            { nombre: 'Filosofía', color: 'bg-teal-500', colorDark: 'bg-teal-600' },
+            { nombre: 'Física', color: 'bg-cyan-500', colorDark: 'bg-cyan-600' },
+            { nombre: 'Química', color: 'bg-lime-500', colorDark: 'bg-lime-600' },
+            { nombre: 'Biología', color: 'bg-emerald-500', colorDark: 'bg-emerald-600' }
+        ];
+
+        let cursoData = {};
+        let actividades = [];
+
+        // Inicializar datos
+        function inicializarDatos() {
+            const datosGuardados = localStorage.getItem('curso-data');
+            const actividadesGuardadas = localStorage.getItem('actividades-recientes');
+
+            if (datosGuardados) {
+                cursoData = JSON.parse(datosGuardados);
+            } else {
+                cursos.forEach(curso => {
+                    cursoData[curso.nombre] = Array(18).fill('pendiente');
+                });
+            }
+
+            if (actividadesGuardadas) {
+                actividades = JSON.parse(actividadesGuardadas);
+            }
+        }
+
+        function guardarDatos() {
+            localStorage.setItem('curso-data', JSON.stringify(cursoData));
+            localStorage.setItem('actividades-recientes', JSON.stringify(actividades));
+        }
+
+        function getEstadoTexto(estado) {
+            const estados = {
+                'videos-generados': '🎥 Videos Generados',
+                'videos-nombrados': '📝 Videos Nombrados',
+                'videos-unidos': '🎬 Videos Unidos',
+                'videos-subidos': '📤 Videos Subidos',
+                'videos-lista-yt': '✅ Videos Lista YT',
+                'pendiente': '⚪ Pendiente'
+            };
+            return estados[estado] || '⚪ Pendiente';
+        }
+
+        function getIcono(estado) {
+            const iconos = {
+                'videos-lista-yt': '✅',
+                'videos-subidos': '📤',
+                'videos-unidos': '🎬',
+                'videos-nombrados': '📝',
+                'videos-generados': '🎥',
+                'pendiente': '⚪'
+            };
+            return iconos[estado] || '⚪';
+        }
+
+        function getColorClasses(estado) {
+            const colores = {
+                'videos-lista-yt': 'bg-green-900/50 border-green-500 hover:bg-green-900/70',
+                'videos-subidos': 'bg-emerald-900/50 border-emerald-400 hover:bg-emerald-900/70',
+                'videos-unidos': 'bg-yellow-900/50 border-yellow-500 hover:bg-yellow-900/70',
+                'videos-nombrados': 'bg-orange-900/50 border-orange-500 hover:bg-orange-900/70',
+                'videos-generados': 'bg-cyan-900/50 border-cyan-500 hover:bg-cyan-900/70',
+                'pendiente': 'bg-gray-800/50 border-gray-600 hover:bg-gray-700/70'
+            };
+            return colores[estado] || 'bg-gray-800/50 border-gray-600 hover:bg-gray-700/70';
+        }
+
+        function toggleEstado(curso, semana) {
+            const estados = ['pendiente', 'videos-generados', 'videos-nombrados', 'videos-unidos', 'videos-subidos', 'videos-lista-yt'];
+            const currentIndex = estados.indexOf(cursoData[curso][semana]);
+            const nextIndex = (currentIndex + 1) % 6;
+            cursoData[curso][semana] = estados[nextIndex];
+
+            const ahora = new Date();
+            const hora = ahora.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+            const fecha = ahora.toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+            const cursoInfo = cursos.find(c => c.nombre === curso);
+
+            actividades.unshift({
+                id: Date.now(),
+                curso: curso,
+                semana: semana + 1,
+                estado: estados[nextIndex],
+                hora: hora,
+                fecha: fecha,
+                color: cursoInfo.color,
+                colorDark: cursoInfo.colorDark
+            });
+
+            actividades = actividades.slice(0, 10);
+            guardarDatos();
+            renderizar();
+        }
+
+        function getProgreso(curso) {
+            const semanas = cursoData[curso];
+            return {
+                listaYT: semanas.filter(s => s === 'videos-lista-yt').length,
+                subidos: semanas.filter(s => s === 'videos-subidos').length,
+                unidos: semanas.filter(s => s === 'videos-unidos').length,
+                nombrados: semanas.filter(s => s === 'videos-nombrados').length,
+                generados: semanas.filter(s => s === 'videos-generados').length,
+                total: 18
+            };
+        }
+
+        function mostrarModalReset() {
+            const modal = document.getElementById('modal-confirmacion');
+            modal.classList.remove('hidden');
+        }
+
+        function ocultarModalReset() {
+            const modal = document.getElementById('modal-confirmacion');
+            modal.classList.add('hidden');
+        }
+
+        function resetearTodo() {
+            cursos.forEach(curso => {
+                cursoData[curso.nombre] = Array(18).fill('pendiente');
+            });
+            actividades = [];
+            localStorage.removeItem('curso-data');
+            localStorage.removeItem('actividades-recientes');
+            ocultarModalReset();
+            renderizar();
+        }
+
+        function renderizar() {
+            const app = document.getElementById('app');
+            
+            let html = `
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center mb-8">
+                        <div class="flex items-center justify-center gap-3 mb-2">
+                            <h1 class="text-4xl font-bold text-white flex items-center gap-3">
+                                <span class="text-5xl">🎓</span>
+                                Control de Videos Preuniversitarios
+                            </h1>
+                        </div>
+                        <p class="text-gray-300 mb-4">Haz clic en cada semana para actualizar su estado</p>
+                        <button onclick="mostrarModalReset()" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition-all inline-flex items-center gap-2">
+                            🔄 Resetear Toda Actividad
+                        </button>
+                    </div>
+
+                    <!-- Modal de Confirmación -->
+                    <div id="modal-confirmacion" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+                        <div class="bg-gray-800 rounded-2xl p-8 max-w-md border-2 border-red-500 shadow-2xl">
+                            <h3 class="text-2xl font-bold text-white mb-4">⚠️ ¿Estás seguro?</h3>
+                            <p class="text-gray-300 mb-6">
+                                Esto borrará TODOS los datos de progreso y actividades registradas. Esta acción no se puede deshacer.
+                            </p>
+                            <div class="flex gap-4">
+                                <button onclick="resetearTodo()" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition-all">
+                                    Sí, resetear todo
+                                </button>
+                                <button onclick="ocultarModalReset()" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition-all">
+                                    Cancelar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Carrusel de Actividades -->
+                    ${actividades.length > 0 ? `
+                        <div class="mb-8 bg-gray-800/60 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-gray-700">
+                            <div class="flex items-center gap-3 mb-4">
+                                <span class="text-2xl animate-pulse">⚡</span>
+                                <h2 class="text-2xl font-bold text-white">Actividad Reciente</h2>
+                            </div>
+                            <div class="overflow-x-auto pb-2">
+                                <div class="flex gap-4 min-w-max">
+                                    ${actividades.map(act => `
+                                        <div class="${act.colorDark} rounded-xl p-4 min-w-[300px] shadow-lg border-2 border-white/20 transform hover:scale-105 transition-all animate-slideIn">
+                                            <div class="flex items-start justify-between mb-2">
+                                                <div class="flex-1">
+                                                    <p class="text-white font-bold text-lg">${act.curso}</p>
+                                                    <p class="text-white/90 text-sm">Semana ${act.semana}</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-white/90 text-xs font-semibold bg-black/20 px-2 py-1 rounded mb-1">
+                                                        📅 ${act.fecha}
+                                                    </p>
+                                                    <p class="text-white/70 text-xs bg-black/20 px-2 py-1 rounded">
+                                                        🕐 ${act.hora}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2 mt-3">
+                                                <span class="text-xl">${getIcono(act.estado)}</span>
+                                                <span class="text-white font-semibold text-sm">
+                                                    ${getEstadoTexto(act.estado)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <!-- Leyenda -->
+                    <div class="mb-8 bg-gray-800/60 backdrop-blur-lg rounded-xl shadow-2xl p-6 border border-gray-700">
+                        <h3 class="text-xl font-bold text-white mb-4">📋 Leyenda del Proceso</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">⚪</span>
+                                <div>
+                                    <p class="font-semibold text-gray-200">Pendiente</p>
+                                    <p class="text-xs text-gray-400">No tocado</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🎥</span>
+                                <div>
+                                    <p class="font-semibold text-gray-200">Videos Generados</p>
+                                    <p class="text-xs text-gray-400">Grabación lista</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">📝</span>
+                                <div>
+                                    <p class="font-semibold text-gray-200">Videos Nombrados</p>
+                                    <p class="text-xs text-gray-400">Con nombres</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">🎬</span>
+                                <div>
+                                    <p class="font-semibold text-gray-200">Videos Unidos</p>
+                                    <p class="text-xs text-gray-400">Editados juntos</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">📤</span>
+                                <div>
+                                    <p class="font-semibold text-gray-200">Videos Subidos</p>
+                                    <p class="text-xs text-gray-400">En YouTube</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-3xl">✅</span>
+                                <div>
+                                    <p class="font-semibold text-gray-200">Videos Lista YT</p>
+                                    <p class="text-xs text-gray-400">Listos en YT</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grid de Cursos -->
+                    <div class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        ${cursos.map(curso => {
+                            const progreso = getProgreso(curso.nombre);
+                            const porcentaje = Math.round((progreso.listaYT / progreso.total) * 100);
+                            
+                            return `
+                                <div class="bg-gray-800/60 backdrop-blur-lg rounded-xl shadow-2xl overflow-hidden transform transition hover:scale-105 border border-gray-700">
+                                    <div class="${curso.colorDark} p-4">
+                                        <h2 class="text-xl font-bold text-white">${curso.nombre}</h2>
+                                        <div class="grid grid-cols-3 gap-2 mt-2 text-white text-xs">
+                                            <span>🎥 ${progreso.generados}</span>
+                                            <span>📝 ${progreso.nombrados}</span>
+                                            <span>🎬 ${progreso.unidos}</span>
+                                            <span>📤 ${progreso.subidos}</span>
+                                            <span>✅ ${progreso.listaYT}</span>
+                                        </div>
+                                        <div class="mt-2 text-white text-sm font-semibold">
+                                            Progreso: ${porcentaje}%
+                                        </div>
+                                    </div>
+
+                                    <div class="p-4">
+                                        <div class="grid grid-cols-6 gap-2">
+                                            ${cursoData[curso.nombre].map((estado, index) => `
+                                                <button
+                                                    onclick="toggleEstado('${curso.nombre}', ${index})"
+                                                    class="${getColorClasses(estado)} border-2 rounded-lg p-2 flex flex-col items-center justify-center transition-all cursor-pointer hover:scale-110"
+                                                    title="Semana ${index + 1}: ${getEstadoTexto(estado)}"
+                                                >
+                                                    <span class="text-2xl">${getIcono(estado)}</span>
+                                                    <span class="text-xs font-semibold text-gray-300 mt-1">
+                                                        S${index + 1}
+                                                    </span>
+                                                </button>
+                                            `).join('')}
+                                        </div>
+
+                                        <div class="mt-4">
+                                            <div class="w-full bg-gray-700 rounded-full h-3">
+                                                <div class="${curso.color} h-3 rounded-full transition-all duration-500" style="width: ${porcentaje}%"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+
+            app.innerHTML = html;
+        }
+
+        // Inicializar app
+        inicializarDatos();
+        renderizar();
+    </script>
+</body>
+</html>
